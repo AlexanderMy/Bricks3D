@@ -3,7 +3,7 @@ using System.Collections;
 using UnityEngine.UI;
 
 public enum MoveDirection{
-	LEFT, RIGHT, UP, DOWN, FALL
+	LEFT, RIGHT, UP, DOWN, FALL, FALL_QUICK
 }
 public enum RotateDirection{
 	PLUS_X, MINUS_X, PLUS_Z, MINUS_Z
@@ -16,18 +16,21 @@ public class GameController : MonoBehaviour {
 	int scores = 0;
 	Vector3 spawnPosition = new Vector3(
 		Constants.X_CELLS * Constants.X_CELL_SIZE / 2,
-		Constants.Y_CELLS * Constants.Y_CELL_SIZE + 2,
+		Constants.Y_CELLS * Constants.Y_CELL_SIZE + 3,
 		Constants.Z_CELLS * Constants.Z_CELL_SIZE / 2);
 
 	float gameSpeed = 0.5f;
-	bool gameOver = false;
+	float quickFallSpeed = 0.005f;
+	bool quickFall;
+	float nextMove;
+	float nextQuckMove;
 	public GameObject [,,] cubes = new GameObject[Constants.X_CELLS,Constants.Y_CELLS,Constants.Z_CELLS];
 
 
 
 	// Use this for initialization
 	void Start () {
-		StartCoroutine(fallFigureDown());	
+		InstantiateFigure();
 	}
 
 	void InstantiateFigure(){
@@ -38,8 +41,27 @@ public class GameController : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-		HorizontalMove();
-		Rotate();
+		if(!ScoreManager.gameOver){
+			if(calculateShouldFall()){
+				fallFigureStep();
+			}
+			HorizontalMove();
+			Rotate();
+		}
+	}
+
+	bool calculateShouldFall(){
+		if(quickFall){
+			if(Time.time > nextQuckMove){
+				nextQuckMove = Time.time + quickFallSpeed;
+				return true;
+			}
+		}
+		if(Time.time > nextMove){
+			nextMove = Time.time + gameSpeed;
+			return true;
+		}
+		return false;
 	}
 
 	#region Moving
@@ -53,6 +75,8 @@ public class GameController : MonoBehaviour {
 			Move(MoveDirection.LEFT);
 		if(Input.GetKeyDown(KeyCode.RightArrow))
 			Move(MoveDirection.RIGHT);
+		if(Input.GetKeyDown(KeyCode.Space))
+			Move(MoveDirection.FALL_QUICK);
 	}
 	
 	void Move(MoveDirection moveDirection){
@@ -71,7 +95,10 @@ public class GameController : MonoBehaviour {
 				break;
 			case MoveDirection.LEFT:
 				position.z -= Constants.X_CELL_SIZE;
-				break;			
+				break;
+			case MoveDirection.FALL_QUICK:
+				quickFall = true;
+				break;
 			}
 			currentFigure.transform.position = position;
 		}
@@ -89,6 +116,7 @@ public class GameController : MonoBehaviour {
 			Rotate(RotateDirection.MINUS_X);
 	}
 
+	//TODO if needed
 	void Rotate(RotateDirection direction){
 		return;
 		if(!canRotate(direction))
@@ -162,19 +190,18 @@ public class GameController : MonoBehaviour {
 		return true;
 	}
 
-	IEnumerator fallFigureDown(){
-		InstantiateFigure();
-		while(!gameOver){
-			Vector3 currentPosition = currentFigure.transform.position;
-			if(canMove(MoveDirection.FALL)){
-				currentPosition.y -= Constants.Y_CELL_SIZE;
-				currentFigure.transform.position = currentPosition;
-			}else{
-				addCubesToMatrix();
-				checkLines();
+	void fallFigureStep(){
+		Vector3 currentPosition = currentFigure.transform.position;
+		if(canMove(MoveDirection.FALL)){
+			currentPosition.y -= Constants.Y_CELL_SIZE;
+			currentFigure.transform.position = currentPosition;
+		}else{
+			quickFall = false;
+			addCubesToMatrix();
+			checkLines();
+			if(!ScoreManager.gameOver){
 				InstantiateFigure();
 			}
-			yield return new WaitForSeconds(gameSpeed);
 		}
 	}
 
@@ -200,7 +227,7 @@ public class GameController : MonoBehaviour {
 		for(int x = 0; x < Constants.X_CELLS; x++){
 			for(int z = 0; z < Constants.Z_CELLS; z++){
 				if(cubes[x, Constants.Y_CELLS - 1, z] != null)
-					gameOver = true;
+					ScoreManager.gameOver = true;
 			}
 		}
 	}
@@ -249,6 +276,7 @@ public class GameController : MonoBehaviour {
 	}
 
 	void UpdateScores(){
+		gameSpeed -= ScoreManager.score / 50000;
 		ScoreManager.score += 100;
 	}
 }
