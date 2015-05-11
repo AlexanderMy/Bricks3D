@@ -14,19 +14,18 @@ public class GameController : MonoBehaviour {
 	GameObject currentFigure;
 	GameObject [] currentFigureCubes;
 	int scores = 0;
-	Vector3 spawnPosition = new Vector3(
+	Vector3 _spawnPosition = new Vector3(
 		Constants.X_CELLS * Constants.X_CELL_SIZE / 2,
-		Constants.Y_CELLS * Constants.Y_CELL_SIZE + 3,
+		Constants.Y_CELLS * Constants.Y_CELL_SIZE + 2,
 		Constants.Z_CELLS * Constants.Z_CELL_SIZE / 2);
 
-	float gameSpeed = 0.5f;
-	float quickFallSpeed = 0.005f;
-	bool quickFall;
-	float nextMove;
-	float nextQuckMove;
-	public GameObject [,,] cubes = new GameObject[Constants.X_CELLS,Constants.Y_CELLS,Constants.Z_CELLS];
-
-
+	float _gameSpeed = 0.5f;
+	float _quickFallSpeed = 0.005f;
+	bool _quickFall;
+	float _nextMove;
+	float _nextQuckMove;
+	public GameObject [,,] cubes = new GameObject[Constants.X_CELLS, Constants.Y_CELLS, Constants.Z_CELLS];
+	IList presentFigures = new ArrayList();
 
 	// Use this for initialization
 	void Start () {
@@ -35,7 +34,8 @@ public class GameController : MonoBehaviour {
 
 	void InstantiateFigure(){
 		int val = (int)Random.Range(0.0f, figures.Length - 0.1f);
-		currentFigure = (GameObject)Instantiate(figures[val], spawnPosition, Quaternion.identity);
+		currentFigure = (GameObject)Instantiate(figures[val], _spawnPosition, Quaternion.identity);
+		presentFigures.Add(currentFigure);
 		currentFigureCubes = currentFigure.GetComponent<Figure>().cubes;
 	}
 	
@@ -43,7 +43,7 @@ public class GameController : MonoBehaviour {
 	void Update () {
 		if(!ScoreManager.gameOver){
 			if(calculateShouldFall()){
-				fallFigureStep();
+				FallFigureStep();
 			}
 			HorizontalMove();
 			Rotate();
@@ -51,14 +51,14 @@ public class GameController : MonoBehaviour {
 	}
 
 	bool calculateShouldFall(){
-		if(quickFall){
-			if(Time.time > nextQuckMove){
-				nextQuckMove = Time.time + quickFallSpeed;
+		if(_quickFall){
+			if(Time.time > _nextQuckMove){
+				_nextQuckMove = Time.time + _quickFallSpeed;
 				return true;
 			}
 		}
-		if(Time.time > nextMove){
-			nextMove = Time.time + gameSpeed;
+		if(Time.time > _nextMove){
+			_nextMove = Time.time + _gameSpeed;
 			return true;
 		}
 		return false;
@@ -97,7 +97,7 @@ public class GameController : MonoBehaviour {
 				position.z -= Constants.X_CELL_SIZE;
 				break;
 			case MoveDirection.FALL_QUICK:
-				quickFall = true;
+				_quickFall = true;
 				break;
 			}
 			currentFigure.transform.position = position;
@@ -156,7 +156,7 @@ public class GameController : MonoBehaviour {
 			switch(direction){
 				case MoveDirection.DOWN:
 				{
-					if(x == Constants.X_CELLS -1 || cubes[x+1, y, z] != null)
+					if(x == Constants.X_CELLS -1 || cubes[x, y - 2, z] != null)
 						return false;
 					break;
 				}
@@ -190,22 +190,25 @@ public class GameController : MonoBehaviour {
 		return true;
 	}
 
-	void fallFigureStep(){
+	void FallFigureStep(){
 		Vector3 currentPosition = currentFigure.transform.position;
 		if(canMove(MoveDirection.FALL)){
 			currentPosition.y -= Constants.Y_CELL_SIZE;
 			currentFigure.transform.position = currentPosition;
 		}else{
-			quickFall = false;
-			addCubesToMatrix();
-			checkLines();
+			_quickFall = false;
+			AddCubesToMatrix();
+			CheckLines();
 			if(!ScoreManager.gameOver){
 				InstantiateFigure();
 			}
 		}
 	}
 
-	void addCubesToMatrix(){
+	void AddCubesToMatrix(){
+		if(CheckGameOver())
+			return;
+
 		foreach(GameObject cube in currentFigureCubes){
 			Vector3 cubePosition = cube.transform.position;
 			int x = Mathf.FloorToInt(cubePosition.x / Constants.X_CELL_SIZE);
@@ -215,34 +218,49 @@ public class GameController : MonoBehaviour {
 		}
 	}
 
-	void checkLines(){
+	void CheckLines(){
+		int filledLines = 0;
+		int bottomY = -1;
 		for(int y = 0; y < Constants.Y_CELLS; y++){
-			checkLines(y);
+			if(IsLinesFilled(y)){
+				if(bottomY == -1)
+					bottomY = y;
+				filledLines ++;
+			}
 		}
-		checkGameOver();
+
+		ShiftLinesDown(bottomY, filledLines);
+		CheckGameOver();
 	}
 
-	void checkGameOver ()
+	bool CheckGameOver ()
 	{
 		for(int x = 0; x < Constants.X_CELLS; x++){
 			for(int z = 0; z < Constants.Z_CELLS; z++){
-				if(cubes[x, Constants.Y_CELLS - 1, z] != null)
+				if(cubes[x, Constants.Y_CELLS - 1, z] != null){
 					ScoreManager.gameOver = true;
+					return true;
+				}
 			}
 		}
+		return false;
 	}
 
-	void checkLines(int y){
-		int counts = 0;
+	bool IsLinesFilled(int y){
+		int count = 0;
 		for(int x = 0; x < Constants.X_CELLS; x++){
 			for(int z = 0; z < Constants.Z_CELLS; z++){
 				if(cubes[x, y, z] != null)
-					counts++;
+					count++;
 			}
 		}
-		Debug.Log("cubes on y = " + y + " - " + counts + "; maxCubes = " + Constants.X_CELLS * Constants.Z_CELLS);
-		if(counts == Constants.X_CELLS * Constants.Z_CELLS)
+		Debug.Log("cubes on y = " + y + " - " + count + "; maxCubes = " + Constants.X_CELLS * Constants.Z_CELLS);
+		if(count == Constants.X_CELLS * Constants.Z_CELLS){
 			RemoveLine(y);
+			return true;
+//			checkLines();
+		}
+		return false;
 	}
 
 	void RemoveLine (int y)
@@ -252,31 +270,66 @@ public class GameController : MonoBehaviour {
 				Destroy(cubes[x, y, z]);
 			}
 		}
-		ShiftLinesDown(y);
+		Debug.Log("Will be removed line: " + y);
+//		RemoveEmptyFigures();
+//		ShiftLinesDown(y);
 		UpdateScores();
 	}
 
-	void ShiftLinesDown (int y)
+	void ShiftLinesDown (int y, int count)
 	{
-		for(; y < Constants.Y_CELLS - 1; y++){
-			for(int x = 0; x < Constants.X_CELLS; x++){
-				for(int z = 0; z < Constants.X_CELLS; z++){
-					GameObject shufleCube = cubes[x, y+1, z];
-					cubes[x, y, z] = cubes[x, y+1, z];
+		if(y == -1)
+			return;
+		for(int i = 0; i <= count; i++)
+		{
+			for(; y < Constants.Y_CELLS - 1; y++)
+			{
+				for(int x = 0; x < Constants.X_CELLS; x++)
+				{
+					for(int z = 0; z < Constants.Z_CELLS; z++)
+					{
+						GameObject shufleCube = cubes[x, y+1, z];
+						cubes[x, y, z] = cubes[x, y+1, z];
 
-					if(cubes[x, y, z] == null)
-						continue;
+						if(cubes[x, y, z] == null)
+							continue;
 
-					Vector3 pos = cubes[x, y, z].transform.position;
-					pos.y -= Constants.Y_CELL_SIZE;
-					cubes[x, y, z].transform.position = pos;
+						Vector3 pos = cubes[x, y, z].transform.position;
+						pos.y -= Constants.Y_CELL_SIZE;
+						cubes[x, y, z].transform.position = pos;
+					}
 				}
 			}
 		}
 	}
 
+	void RemoveEmptyFigures(){
+		//TODO
+		for(int i = 0; i < presentFigures.Count; i++){
+			Figure fig = ((GameObject)presentFigures[i]).GetComponent<Figure>();
+			bool isFigureEmpty = false;
+			Debug.Log("check figure: " + fig);
+
+			foreach(var cube in fig.cubes){
+				Debug.Log("check cube: " + cube);
+				if(cube != null){
+					isFigureEmpty = false;
+					break;
+				}else{
+					isFigureEmpty = true;
+				}
+			}
+
+			if(isFigureEmpty){
+				presentFigures.Remove(fig);
+				Destroy(fig);
+				Debug.Log("will be removed: " + fig);
+			}
+		}
+	}
+
 	void UpdateScores(){
-		gameSpeed -= ScoreManager.score / 50000;
+		_gameSpeed -= ScoreManager.score / 50000;
 		ScoreManager.score += 100;
 	}
 }
