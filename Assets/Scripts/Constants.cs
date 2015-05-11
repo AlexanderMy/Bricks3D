@@ -10,4 +10,5 @@ public class Constants{
 	public const float Z_CELL_SIZE = 10.0f;
 	public const float MOVE_STEP = 10.0f;
 	public const float ROTATION_STEP = 90.0f;
+	public const bool useMobileController = false;
 }

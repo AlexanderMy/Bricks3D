@@ -60,6 +60,7 @@
      <Compile Include="Assets\Scripts\Figure.cs" />
      <Compile Include="Assets\Scripts\GameController.cs" />
      <Compile Include="Assets\Scripts\GameOverButton.cs" />
+     <Compile Include="Assets\Scripts\MobileController.cs" />
      <Compile Include="Assets\Scripts\ScoreManager.cs" />
  <Reference Include="UnityEngine.UI">
  <HintPath>H:/ProgramFiles/Unity5/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>

@@ -79,7 +79,7 @@ public class GameController : MonoBehaviour {
 			Move(MoveDirection.FALL_QUICK);
 	}
 	
-	void Move(MoveDirection moveDirection){
+	public void Move(MoveDirection moveDirection){
 		if(canMove(moveDirection)){
 			Vector3 position = currentFigure.transform.position;
 			Vector3 movePosition = position;
